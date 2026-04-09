@@ -1,11 +1,18 @@
 [package]
 name = "term-maths"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 description = "Character-grid mathematical notation renderer for terminals --- LaTeX math to 2D Unicode art"
 license = "MIT OR Apache-2.0"
 keywords = ["math", "latex", "terminal", "unicode", "rendering"]
 categories = ["command-line-interface", "text-processing", "visualization"]
+exclude = [
+    "python/",
+    "pyproject.toml",
+    ".github/",
+    "docs/",
+    ".venv/",
+]
 
 [lib]
 # rlib for Rust consumers; cdylib for the Python extension (required by maturin)

@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "term-maths"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Character-grid mathematical notation renderer for terminals — LaTeX math to 2D Unicode art"
 license = { text = "MIT OR Apache-2.0" }
 requires-python = ">=3.10"
@@ -36,3 +36,11 @@ module-name = "term_maths._term_maths"
 # The directory containing the Python package source
 python-source = "python"
 manifest-path = "Cargo.toml"
+# Exclude from sdist: build artefacts, dev tools, and internal notes
+exclude = [
+    "target/",
+    ".venv/",
+    "docs/",
+    "python/docs/_build/",
+    ".github/",
+]

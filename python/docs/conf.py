@@ -41,10 +41,6 @@ autoclass_content = "both"          # include both class and __init__ docstrings
 autodoc_typehints = "description"   # render type hints in the description, not signature
 autodoc_member_order = "bysource"
 
-# If the compiled extension is not installed, mock it so the docs can still build.
-# Remove this once `maturin develop` or `pip install -e .` has been run.
-autodoc_mock_imports = ["term_maths._term_maths"]
-
 # ---------------------------------------------------------------------------
 # HTML output
 # ---------------------------------------------------------------------------
