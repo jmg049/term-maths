@@ -126,3 +126,151 @@ fn test_fraction_baseline_alignment() {
     let bar_row = lines.iter().position(|l| l.contains('─')).unwrap();
     assert!(lines[bar_row].contains('x') || lines[bar_row].contains('+'));
 }
+
+// ── Sprint 2: DSP Reference Equations ──────────────────────────────────
+
+#[test]
+fn test_dft_summation() {
+    // X[k] = Σ_{n=0}^{N-1} x[n] · e^{-j 2π/N kn}
+    let lines = render_lines(r"X[k] = \sum_{n=0}^{N-1} x[n] \cdot e^{-j \frac{2\pi}{N} kn}");
+    let joined = lines.join("\n");
+
+    // Must contain the summation symbol
+    assert!(joined.contains('∑'), "missing Σ");
+    // Must contain upper limit N-1 and lower limit n=0
+    assert!(joined.contains("N - 1") || joined.contains("N-1"), "missing upper limit");
+    assert!(joined.contains("n = 0") || joined.contains("n=0"), "missing lower limit");
+    // Must contain the exponent's fraction 2π/N
+    assert!(joined.contains('π'), "missing π in exponent");
+    // Multi-line output
+    assert!(lines.len() >= 3, "DFT should be at least 3 lines tall");
+}
+
+#[test]
+fn test_convolution_integral() {
+    // (f * g)(t) = ∫_{-∞}^{∞} f(τ) g(t - τ) dτ
+    let lines = render_lines(
+        r"(f * g)(t) = \int_{-\infty}^{\infty} f(\tau) g(t - \tau) \, d\tau",
+    );
+    let joined = lines.join("\n");
+
+    // Must contain integral pieces
+    assert!(
+        joined.contains('⌠') || joined.contains('∫'),
+        "missing integral symbol"
+    );
+    // Must contain limits
+    assert!(joined.contains('∞'), "missing infinity");
+    assert!(joined.contains("-∞"), "missing negative infinity");
+    // Must contain tau
+    assert!(joined.contains('τ'), "missing tau");
+    // Multi-line output (integral is 3+ rows)
+    assert!(lines.len() >= 3, "convolution integral should be at least 3 lines");
+}
+
+#[test]
+fn test_transfer_function() {
+    // H(z) = (b₀ + b₁z⁻¹ + b₂z⁻²) / (1 + a₁z⁻¹ + a₂z⁻²)
+    let lines = render_lines(
+        r"H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{1 + a_1 z^{-1} + a_2 z^{-2}}",
+    );
+    let joined = lines.join("\n");
+
+    // Must contain fraction bar
+    assert!(lines.iter().any(|l| l.contains('─')), "missing fraction bar");
+    // Must contain subscripted coefficients
+    assert!(joined.contains('₀') || joined.contains("b_0"), "missing b₀");
+    assert!(joined.contains('₁') || joined.contains("b_1"), "missing b₁");
+    // Must contain z⁻¹ (inline superscript)
+    assert!(joined.contains("z⁻¹"), "missing z⁻¹");
+    // Three lines minimum (num + bar + den)
+    assert!(lines.len() >= 3, "transfer function should be at least 3 lines");
+}
+
+#[test]
+fn test_hann_window() {
+    // w(n) = 0.5(1 - cos(2πn / (N-1)))
+    let lines = render_lines(
+        r"w(n) = 0.5 \left(1 - \cos\left(\frac{2\pi n}{N - 1}\right)\right)",
+    );
+    let joined = lines.join("\n");
+
+    // Must contain cos
+    assert!(joined.contains("cos"), "missing cos");
+    // Must contain π
+    assert!(joined.contains('π'), "missing π");
+    // Must contain scaled delimiters
+    assert!(
+        joined.contains('⎛') || joined.contains('('),
+        "missing delimiter"
+    );
+    // Must contain N - 1 in denominator
+    assert!(joined.contains("N - 1"), "missing N - 1 denominator");
+    // Multi-line (fraction inside delimiters)
+    assert!(lines.len() >= 2, "Hann window should be at least 2 lines");
+}
+
+// ── Sprint 2: Component Tests ──────────────────────────────────────────
+
+#[test]
+fn test_integral_multirow() {
+    let lines = render_lines(r"\int_{0}^{1}");
+    let joined = lines.join("\n");
+    // Should use multi-row integral characters
+    assert!(joined.contains('⌠'), "missing ⌠ top piece");
+    assert!(joined.contains('⌡'), "missing ⌡ bottom piece");
+}
+
+#[test]
+fn test_sum_with_limits() {
+    let lines = render_lines(r"\sum_{i=1}^{n}");
+    let joined = lines.join("\n");
+    assert!(joined.contains('∑'), "missing Σ");
+    // Upper limit above, lower limit below
+    assert!(lines.len() >= 3, "sum with limits should be at least 3 lines");
+}
+
+#[test]
+fn test_scaled_delimiters() {
+    let lines = render_lines(r"\left(\frac{a}{b}\right)");
+    let joined = lines.join("\n");
+    // Should use bracket piece characters for 3-row fraction
+    assert!(
+        joined.contains('⎛') && joined.contains('⎝'),
+        "missing scaled parentheses"
+    );
+    assert!(joined.contains('─'), "missing fraction bar");
+}
+
+#[test]
+fn test_overline() {
+    let lines = render_lines(r"\overline{abc}");
+    assert_eq!(lines.len(), 2);
+    assert!(lines[0].contains('‾'), "missing overline character");
+    assert!(lines[1].contains("abc"), "missing body");
+}
+
+#[test]
+fn test_accent_hat() {
+    let lines = render_lines(r"\hat{x}");
+    assert_eq!(lines.len(), 2);
+    assert!(lines[0].contains('^'), "missing hat");
+    assert!(lines[1].contains('x'), "missing body");
+}
+
+#[test]
+fn test_accent_vec() {
+    let lines = render_lines(r"\vec{v}");
+    assert_eq!(lines.len(), 2);
+    assert!(lines[0].contains('→'), "missing arrow");
+    assert!(lines[1].contains('v'), "missing body");
+}
+
+#[test]
+fn test_sqrt_of_fraction() {
+    let lines = render_lines(r"\sqrt{\frac{a}{b}}");
+    let joined = lines.join("\n");
+    assert!(joined.contains('√'), "missing radical");
+    assert!(joined.contains('─'), "missing overline or fraction bar");
+    assert!(lines.len() >= 3, "sqrt of fraction should be multi-line");
+}

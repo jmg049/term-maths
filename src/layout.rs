@@ -429,31 +429,88 @@ fn build_sup_sub_grid(
 fn layout_sqrt(body: &EqNode) -> RenderedBlock {
     let body_block = layout(body);
     let body_h = body_block.height();
+    let body_w = body_block.width();
 
-    // Build: overline on top, √ on left at bottom, │ extending up for tall bodies
-    let overline_width = body_block.width();
+    // Single-row body:   ___
+    //                   √abc
+    //
+    // Multi-row body:    ________
+    //                   ╱  num
+    //                  ╱  ─────
+    //                 √   den
 
-    let mut rows = Vec::with_capacity(body_h + 1);
+    if body_h == 1 {
+        // Simple case: √ prefix with overline above
+        let mut rows = Vec::with_capacity(2);
+        // Overline row
+        let mut top = vec![" ".to_string()];
+        top.extend(std::iter::repeat_n("─".to_string(), body_w));
+        rows.push(top);
+        // Body row with √
+        let mut bot = vec!["√".to_string()];
+        bot.extend(body_block.cells()[0].iter().cloned());
+        rows.push(bot);
+        RenderedBlock::new(rows, 1) // baseline at body row
+    } else {
+        // Multi-row: radical extends upward
+        let mut rows = Vec::with_capacity(body_h + 1);
 
-    // Top row: overline
-    let mut top_row = vec![" ".to_string(); 1]; // space for radical column
-    top_row.extend(std::iter::repeat_n("─".to_string(), overline_width));
-    rows.push(top_row);
+        // Overline row
+        let mut top = vec![" ".to_string()];
+        top.extend(std::iter::repeat_n("─".to_string(), body_w));
+        rows.push(top);
 
-    // Body rows with radical on the left
-    for r in 0..body_h {
-        let radical_char = if r == body_h - 1 {
-            "√".to_string()
-        } else {
-            "│".to_string()
-        };
-        let mut row = vec![radical_char];
-        row.extend(body_block.cells()[r].iter().cloned());
-        rows.push(row);
+        // Body rows with radical on the left
+        for r in 0..body_h {
+            let radical_char = if r == body_h - 1 {
+                "√"
+            } else {
+                "│"
+            };
+            let mut row = vec![radical_char.to_string()];
+            row.extend(body_block.cells()[r].iter().cloned());
+            rows.push(row);
+        }
+
+        let baseline = 1 + body_block.baseline();
+        RenderedBlock::new(rows, baseline)
     }
+}
 
-    let baseline = 1 + body_block.baseline(); // shifted down by 1 for overline
-    RenderedBlock::new(rows, baseline)
+/// Build a multi-row operator symbol for integrals (⌠⎮⌡) and large Σ/∏.
+fn build_bigop_symbol(symbol: &str) -> RenderedBlock {
+    match symbol {
+        "∫" => {
+            // 3-row integral using bracket pieces
+            let rows = vec![
+                vec!["⌠".to_string()],
+                vec!["⎮".to_string()],
+                vec!["⌡".to_string()],
+            ];
+            RenderedBlock::new(rows, 1) // baseline at middle
+        }
+        "∬" => {
+            let rows = vec![
+                vec!["⌠".to_string(), "⌠".to_string()],
+                vec!["⎮".to_string(), "⎮".to_string()],
+                vec!["⌡".to_string(), "⌡".to_string()],
+            ];
+            RenderedBlock::new(rows, 1)
+        }
+        "∮" => {
+            // Contour integral — use single char since no multi-row form exists
+            let rows = vec![
+                vec!["⌠".to_string()],
+                vec!["⎮".to_string()],
+                vec!["⌡".to_string()],
+            ];
+            RenderedBlock::new(rows, 1)
+        }
+        _ => {
+            // Σ, ∏, etc. — single character is fine, they're already wide enough
+            RenderedBlock::from_text(symbol)
+        }
+    }
 }
 
 fn layout_bigop(
@@ -461,7 +518,7 @@ fn layout_bigop(
     lower: &Option<Box<EqNode>>,
     upper: &Option<Box<EqNode>>,
 ) -> RenderedBlock {
-    let op_block = RenderedBlock::from_text(symbol);
+    let op_block = build_bigop_symbol(symbol);
 
     let upper_block = upper.as_ref().map(|u| layout(u));
     let lower_block = lower.as_ref().map(|l| layout(l));
@@ -477,47 +534,74 @@ fn layout_bigop(
 
     let op_centered = op_block.center_in(max_width);
 
-    let mut result = if let Some(ub) = upper_block {
+    let mut result = if let Some(ub) = &upper_block {
         let ub_centered = ub.center_in(max_width);
-        RenderedBlock::above(&ub_centered, &op_centered, ub_centered.height())
+        let baseline = ub_centered.height(); // op starts after upper limit
+        RenderedBlock::above(&ub_centered, &op_centered, baseline)
     } else {
         op_centered.clone()
     };
 
-    let baseline = result.height() - 1; // operator row
+    // Baseline at the middle of the operator symbol
+    let op_mid = upper_block.as_ref().map_or(0, |b| b.height()) + op_block.height() / 2;
 
-    if let Some(lb) = lower_block {
+    if let Some(lb) = &lower_block {
         let lb_centered = lb.center_in(max_width);
-        result = RenderedBlock::above(&result, &lb_centered, baseline);
+        result = RenderedBlock::above(&result, &lb_centered, op_mid);
     }
 
-    // Baseline is at the operator symbol
-    RenderedBlock::new(result.cells().to_vec(), baseline)
+    RenderedBlock::new(result.cells().to_vec(), op_mid)
 }
 
 fn layout_accent(body: &EqNode, kind: &AccentKind) -> RenderedBlock {
     let body_block = layout(body);
-    let accent_char = match kind {
-        AccentKind::Hat => '^',
-        AccentKind::Bar => '‾',
-        AccentKind::Dot => '˙',
-        AccentKind::DoubleDot => '¨',
-        AccentKind::Tilde => '~',
-        AccentKind::Vec => '→',
-    };
+    let w = body_block.width();
 
-    let accent_str = if body_block.width() <= 1 {
-        RenderedBlock::from_char(accent_char)
-    } else {
-        // For bar/overline, repeat across width
-        match kind {
-            AccentKind::Bar => RenderedBlock::hline('‾', body_block.width()),
-            _ => RenderedBlock::from_char(accent_char).center_in(body_block.width()),
+    let accent_block = match kind {
+        AccentKind::Bar => {
+            // Overline: use ‾ repeated across full width
+            RenderedBlock::hline('‾', w)
         }
+        AccentKind::Hat => {
+            if w <= 1 {
+                RenderedBlock::from_char('^')
+            } else if w <= 3 {
+                RenderedBlock::from_text("/\\").center_in(w)
+            } else {
+                // Wide hat: /‾‾‾\ shape
+                let inner = w.saturating_sub(2);
+                let hat_str: String =
+                    std::iter::once('/')
+                        .chain(std::iter::repeat_n('‾', inner))
+                        .chain(std::iter::once('\\'))
+                        .collect();
+                RenderedBlock::from_text(&hat_str)
+            }
+        }
+        AccentKind::Tilde => {
+            if w <= 1 {
+                RenderedBlock::from_char('~')
+            } else {
+                // Wide tilde using ˜ repeated or ~ centered
+                RenderedBlock::hline('~', w)
+            }
+        }
+        AccentKind::Vec => {
+            if w <= 1 {
+                RenderedBlock::from_char('→')
+            } else {
+                // Arrow spanning width: ──→
+                let shaft = w.saturating_sub(1);
+                let arrow_str: String = std::iter::repeat_n('─', shaft).chain(std::iter::once('→')).collect();
+                RenderedBlock::from_text(&arrow_str)
+            }
+        }
+        AccentKind::Dot => RenderedBlock::from_char('˙').center_in(w),
+        AccentKind::DoubleDot => RenderedBlock::from_text("¨").center_in(w),
     };
 
-    let baseline = accent_str.height() + body_block.baseline();
-    RenderedBlock::above(&accent_str, &body_block, baseline)
+    let baseline = accent_block.height() + body_block.baseline();
+    RenderedBlock::above(&accent_block, &body_block, baseline)
 }
 
 fn layout_limit(name: &str, lower: &Option<Box<EqNode>>) -> RenderedBlock {
