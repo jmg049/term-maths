@@ -121,7 +121,7 @@ impl PyRenderedBlock {
     ///
     /// :rtype: list[list[str]]
     fn cells(&self) -> Vec<Vec<String>> {
-        self.0.cells().iter().cloned().collect()
+        self.0.cells().to_vec()
     }
 
     /// Return ``True`` if the block has zero width or height.
@@ -150,7 +150,11 @@ impl PyRenderedBlock {
     /// :type baseline_row: int
     /// :rtype: RenderedBlock
     #[staticmethod]
-    fn above(top: &PyRenderedBlock, bottom: &PyRenderedBlock, baseline_row: usize) -> PyRenderedBlock {
+    fn above(
+        top: &PyRenderedBlock,
+        bottom: &PyRenderedBlock,
+        baseline_row: usize,
+    ) -> PyRenderedBlock {
         PyRenderedBlock(RenderedBlock::above(&top.0, &bottom.0, baseline_row))
     }
 
@@ -244,13 +248,15 @@ pub mod _term_maths {
     /// :returns: The rendered block.
     /// :rtype: RenderedBlock
     ///
-    /// Example::
+    /// Example:
     ///
-    ///     >>> import term_maths
-    ///     >>> print(term_maths.render(r"\frac{a}{b}"))
-    ///      a
-    ///     ───
-    ///      b
+    /// ```python
+    /// >>> import term_maths
+    /// >>> print(term_maths.render(r"\frac{a}{b}"))
+    ///  a
+    /// ───
+    ///  b
+    /// ```
     #[pyfunction]
     pub fn render(latex: &str) -> PyRenderedBlock {
         PyRenderedBlock(crate::render(latex))

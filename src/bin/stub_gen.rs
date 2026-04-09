@@ -11,7 +11,6 @@
 //! pyo3-stub-gen by scanning upward for `pyproject.toml`.
 
 fn main() {
-    let stub = term_maths::python::stub_info_gatherer()
-        .expect("Failed to collect stub info");
+    let stub = term_maths::python::stub_info_gatherer().expect("Failed to collect stub info");
     stub.generate().expect("Failed to generate Python stubs");
 }

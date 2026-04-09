@@ -56,6 +56,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo doc --all-features --no-deps
+      - run: cargo doc --features ratatui,crossterm,pulldown-latex --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
