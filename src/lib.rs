@@ -1,4 +1,5 @@
 pub mod layout;
+pub mod mathfont;
 pub mod rendered_block;
 
 pub use rendered_block::RenderedBlock;

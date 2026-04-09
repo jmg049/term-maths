@@ -1,5 +1,6 @@
 use rust_latex_parser::{AccentKind, EqNode, MathFontKind, MatrixKind};
 
+use crate::mathfont;
 use crate::rendered_block::RenderedBlock;
 
 /// Render an `EqNode` AST into a `RenderedBlock`.
@@ -168,6 +169,32 @@ fn layout_seq(children: &[EqNode]) -> RenderedBlock {
         result = result.beside(&block);
     }
     result
+}
+
+/// Trim leading/trailing whitespace from a node.
+/// Strips Space nodes and whitespace-only Text nodes from Seq boundaries.
+fn trim_node(node: &EqNode) -> EqNode {
+    match node {
+        EqNode::Seq(children) => {
+            let trimmed: Vec<EqNode> = children
+                .iter()
+                .map(|c| match c {
+                    EqNode::Text(s) => EqNode::Text(s.trim().to_string()),
+                    other => other.clone(),
+                })
+                .filter(|c| !is_space_like(c) || !matches!(c, EqNode::Text(s) if s.is_empty()))
+                .collect();
+            // Remove leading/trailing space-like nodes
+            let start = trimmed.iter().position(|c| !is_space_like(c)).unwrap_or(0);
+            let end = trimmed.iter().rposition(|c| !is_space_like(c)).map_or(0, |i| i + 1);
+            if start >= end {
+                return EqNode::Seq(vec![]);
+            }
+            EqNode::Seq(trimmed[start..end].to_vec())
+        }
+        EqNode::Text(s) => EqNode::Text(s.trim().to_string()),
+        other => other.clone(),
+    }
 }
 
 /// Recursively flatten nested Seq nodes into a single flat list.
@@ -619,9 +646,15 @@ fn layout_limit(name: &str, lower: &Option<Box<EqNode>>) -> RenderedBlock {
     }
 }
 
-fn layout_mathfont(_kind: &MathFontKind, content: &EqNode) -> RenderedBlock {
-    // Sprint 1: render content normally, font styling deferred to Sprint 3
-    layout(content)
+fn layout_mathfont(kind: &MathFontKind, content: &EqNode) -> RenderedBlock {
+    // Extract text and apply Unicode math font mapping
+    if let Some(text) = extract_flat_text(content) {
+        let mapped = mathfont::map_str(kind, &text);
+        RenderedBlock::from_text(&mapped)
+    } else {
+        // Complex content inside font command — render normally
+        layout(content)
+    }
 }
 
 fn layout_delimited(left: &str, right: &str, content: &EqNode) -> RenderedBlock {
@@ -680,46 +713,63 @@ fn layout_matrix(kind: &MatrixKind, matrix_rows: &[Vec<EqNode>]) -> RenderedBloc
         return RenderedBlock::empty();
     }
 
-    // Render all cells
+    // Render all cells, trimming whitespace from cell content
     let rendered: Vec<Vec<RenderedBlock>> = matrix_rows
         .iter()
-        .map(|row| row.iter().map(|cell| layout(cell)).collect())
+        .map(|row| row.iter().map(|cell| layout(&trim_node(cell))).collect())
         .collect();
 
     let num_cols = rendered.iter().map(|r| r.len()).max().unwrap_or(0);
 
-    // Compute column widths and row heights
+    // Compute column widths
     let mut col_widths = vec![0usize; num_cols];
-    let mut row_heights = vec![0usize; rendered.len()];
-
-    for (r, row) in rendered.iter().enumerate() {
+    for row in &rendered {
         for (c, cell) in row.iter().enumerate() {
             col_widths[c] = col_widths[c].max(cell.width());
-            row_heights[r] = row_heights[r].max(cell.height());
         }
     }
 
-    // Build grid row by row
-    let col_sep = 1; // space between columns
-    let mut grid = RenderedBlock::empty();
+    // Build each matrix row using beside() for proper baseline alignment.
+    // Then stack rows vertically with a separator gap.
+    let col_sep = 2; // spaces between columns
+    let separator = RenderedBlock::from_text(&" ".repeat(col_sep));
+
+    let mut row_blocks: Vec<RenderedBlock> = Vec::new();
 
     for row in &rendered {
         let mut row_block = RenderedBlock::empty();
         for (c, cell) in row.iter().enumerate() {
             let padded = cell.center_in(col_widths[c]);
             if !row_block.is_empty() {
-                row_block = row_block.beside(&RenderedBlock::from_text(&" ".repeat(col_sep)));
+                row_block = row_block.beside(&separator);
             }
             row_block = row_block.beside(&padded);
         }
+        // Pad to fill missing columns
+        for c in row.len()..num_cols {
+            row_block = row_block.beside(&separator);
+            row_block = row_block.beside(&RenderedBlock::from_text(
+                &" ".repeat(col_widths[c]),
+            ));
+        }
+        row_blocks.push(row_block);
+    }
+
+    // Stack rows vertically. Each row_block already has correct baselines from beside().
+    let grid_width = row_blocks.iter().map(|r| r.width()).max().unwrap_or(0);
+
+    let mut grid = RenderedBlock::empty();
+    for row_block in &row_blocks {
+        let padded = row_block.center_in(grid_width);
         if grid.is_empty() {
-            grid = row_block;
+            grid = padded;
         } else {
-            grid = RenderedBlock::above(&grid, &row_block, grid.height() / 2);
+            let baseline = grid.height() / 2; // intermediate baseline
+            grid = RenderedBlock::above(&grid, &padded, baseline);
         }
     }
 
-    // Set baseline to middle
+    // Set baseline to middle of entire grid
     let total_height = grid.height();
     let grid = RenderedBlock::new(grid.cells().to_vec(), total_height / 2);
 

@@ -274,3 +274,124 @@ fn test_sqrt_of_fraction() {
     assert!(joined.contains('─'), "missing overline or fraction bar");
     assert!(lines.len() >= 3, "sqrt of fraction should be multi-line");
 }
+
+// ── Sprint 3: Matrix and Symbol Coverage ───────────────────────────────
+
+#[test]
+fn test_pmatrix_2x2() {
+    let lines = render_lines(r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}");
+    let joined = lines.join("\n");
+    // Parenthesis delimiters
+    assert!(joined.contains('⎛') || joined.contains('('), "missing left paren");
+    assert!(joined.contains('⎞') || joined.contains(')'), "missing right paren");
+    // All entries present
+    for ch in ['a', 'b', 'c', 'd'] {
+        assert!(joined.contains(ch), "missing entry {}", ch);
+    }
+}
+
+#[test]
+fn test_bmatrix_identity() {
+    let lines = render_lines(r"\begin{bmatrix} 1 & 0 \\ 0 & 1 \end{bmatrix}");
+    let joined = lines.join("\n");
+    // Bracket delimiters
+    assert!(joined.contains('⎡') || joined.contains('['), "missing left bracket");
+    assert!(joined.contains('⎤') || joined.contains(']'), "missing right bracket");
+}
+
+#[test]
+fn test_vmatrix_determinant() {
+    let lines = render_lines(r"\begin{vmatrix} a & b \\ c & d \end{vmatrix}");
+    let joined = lines.join("\n");
+    assert!(joined.contains('│'), "missing vertical bar delimiter");
+}
+
+#[test]
+fn test_matrix_with_fractions() {
+    let lines = render_lines(
+        r"\begin{pmatrix} \frac{1}{2} & 0 \\ 0 & \frac{3}{4} \end{pmatrix}",
+    );
+    let joined = lines.join("\n");
+    // Fraction bars inside cells
+    assert!(joined.contains('─'), "missing fraction bar");
+    // Both fractions present
+    assert!(joined.contains('1') && joined.contains('2'), "missing 1/2");
+    assert!(joined.contains('3') && joined.contains('4'), "missing 3/4");
+    // Multi-line (fractions make rows taller)
+    assert!(lines.len() >= 4, "matrix with fractions should be at least 4 lines");
+}
+
+#[test]
+fn test_3x3_matrix() {
+    let lines = render_lines(
+        r"\begin{bmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 9 \end{bmatrix}",
+    );
+    let joined = lines.join("\n");
+    // All digits present
+    for d in '1'..='9' {
+        assert!(joined.contains(d), "missing digit {}", d);
+    }
+    assert!(lines.len() >= 3, "3x3 matrix should be at least 3 lines");
+}
+
+// ── Math Font Tests ────────────────────────────────────────────────────
+
+#[test]
+fn test_mathbb_double_struck() {
+    let block = render(r"\mathbb{R}");
+    let output = format!("{}", block);
+    assert_eq!(output.trim(), "ℝ");
+}
+
+#[test]
+fn test_mathbb_integers() {
+    let block = render(r"\mathbb{Z}");
+    let output = format!("{}", block);
+    assert_eq!(output.trim(), "ℤ");
+}
+
+#[test]
+fn test_mathcal_script() {
+    let block = render(r"\mathcal{L}");
+    let output = format!("{}", block);
+    assert_eq!(output.trim(), "ℒ");
+}
+
+#[test]
+fn test_mathbf_bold() {
+    let block = render(r"\mathbf{x}");
+    let output = format!("{}", block);
+    assert_eq!(output.trim(), "𝐱");
+}
+
+#[test]
+fn test_mathfrak_fraktur() {
+    let block = render(r"\mathfrak{g}");
+    let output = format!("{}", block);
+    assert_eq!(output.trim(), "𝔤");
+}
+
+#[test]
+fn test_mathbb_with_superscript() {
+    let lines = render_lines(r"\mathbb{R}^n");
+    assert_eq!(lines.len(), 1);
+    let output = &lines[0];
+    assert!(output.contains('ℝ'), "missing double-struck R");
+    assert!(output.contains('ⁿ'), "missing superscript n");
+}
+
+#[test]
+fn test_mathsf_sans_serif() {
+    let block = render(r"\mathsf{ABC}");
+    let output = format!("{}", block);
+    assert!(output.contains('𝖠'), "missing sans-serif A");
+    assert!(output.contains('𝖡'), "missing sans-serif B");
+    assert!(output.contains('𝖢'), "missing sans-serif C");
+}
+
+#[test]
+fn test_mathtt_monospace() {
+    let block = render(r"\mathtt{code}");
+    let output = format!("{}", block);
+    assert!(output.contains('𝚌'), "missing monospace c");
+}
