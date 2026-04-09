@@ -34,6 +34,9 @@ pub mod crossterm_renderer;
 #[cfg(feature = "ratatui")]
 pub mod ratatui_widget;
 
+#[cfg(feature = "python")]
+pub mod python;
+
 pub use latex_renderer::LatexRenderer;
 pub use rendered_block::RenderedBlock;
 pub use renderer::{MathRenderer, TerminalRenderer};

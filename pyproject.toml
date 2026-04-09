@@ -1,0 +1,38 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "term-maths"
+version = "0.1.0"
+description = "Character-grid mathematical notation renderer for terminals — LaTeX math to 2D Unicode art"
+license = { text = "MIT OR Apache-2.0" }
+requires-python = ">=3.10"
+readme = "README.md"
+keywords = ["math", "latex", "terminal", "unicode", "rendering"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Terminals",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+]
+
+[tool.maturin]
+# Enables the `python` Cargo feature when building the extension
+features = ["python"]
+# The dotted Python module path of the compiled extension.
+# maturin places the .so file at python/term_maths/_term_maths.so
+module-name = "term_maths._term_maths"
+# The directory containing the Python package source
+python-source = "python"
+manifest-path = "Cargo.toml"
