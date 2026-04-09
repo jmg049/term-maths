@@ -60,6 +60,13 @@ fn layout_sup(base: &EqNode, sup: &EqNode) -> RenderedBlock {
     let base_block = layout(base);
     let sup_block = layout(sup);
 
+    let can_overlap = base_block.height() > 1;
+    let sup_above = if can_overlap {
+        sup_block.height().saturating_sub(1)
+    } else {
+        sup_block.height()
+    };
+
     let rows = build_sup_sub_grid(
         base_block.cells(),
         base_block.width(),
@@ -71,7 +78,7 @@ fn layout_sup(base: &EqNode, sup: &EqNode) -> RenderedBlock {
     );
 
     let total_height = rows.len();
-    let baseline = sup_block.height() + base_block.baseline() - 1;
+    let baseline = sup_above + base_block.baseline();
 
     RenderedBlock::new(rows, baseline.min(total_height.saturating_sub(1)))
 }
@@ -90,8 +97,8 @@ fn layout_sub(base: &EqNode, sub: &EqNode) -> RenderedBlock {
         0,
     );
 
-    let total_height = rows.len();
     let baseline = base_block.baseline();
+    let total_height = rows.len();
 
     RenderedBlock::new(rows, baseline.min(total_height.saturating_sub(1)))
 }
@@ -100,6 +107,14 @@ fn layout_supsub(base: &EqNode, sup: &EqNode, sub: &EqNode) -> RenderedBlock {
     let base_block = layout(base);
     let sup_block = layout(sup);
     let sub_block = layout(sub);
+
+    // Single-row base with both scripts: no overlap, so sup takes full height above
+    let can_overlap_sup = base_block.height() > 1;
+    let sup_above = if can_overlap_sup {
+        sup_block.height().saturating_sub(1)
+    } else {
+        sup_block.height()
+    };
 
     let rows = build_sup_sub_grid(
         base_block.cells(),
@@ -112,7 +127,7 @@ fn layout_supsub(base: &EqNode, sup: &EqNode, sub: &EqNode) -> RenderedBlock {
     );
 
     let total_height = rows.len();
-    let baseline = sup_block.height() + base_block.baseline() - 1;
+    let baseline = sup_above + base_block.baseline();
 
     RenderedBlock::new(rows, baseline.min(total_height.saturating_sub(1)))
 }
@@ -128,6 +143,14 @@ fn layout_supsub(base: &EqNode, sup: &EqNode, sub: &EqNode) -> RenderedBlock {
 ///
 /// The superscript's last row overlaps with the base's first row (right side).
 /// The subscript's first row overlaps with the base's last row (right side).
+/// Build a grid for base with optional superscript above-right and subscript below-right.
+///
+/// For a single-row base like `x`:
+/// - `x^2`   renders as:  ` 2`  /  `x `
+/// - `x_i`   renders as:  `x `  /  ` i`
+/// - `x_i^2` renders as:  ` 2`  /  `x `  /  ` i`
+///
+/// For multi-row bases, sup overlaps with the top row and sub with the bottom row.
 fn build_sup_sub_grid(
     base_cells: &[Vec<String>],
     base_width: usize,
@@ -141,69 +164,91 @@ fn build_sup_sub_grid(
     let sup_height = sup_cells.len();
     let (sub_cells, sub_width) = sub.unwrap_or((&[], 0));
     let sub_height = sub_cells.len();
+    let has_sup = sup_height > 0;
+    let has_sub = sub_height > 0;
 
     let script_width = sup_width.max(sub_width);
 
-    // Sup rows above base (all but last sup row, which overlaps with base top)
-    let sup_above = sup_height.saturating_sub(1);
-    // Sub rows below base (all but first sub row, which overlaps with base bottom)
-    let sub_below = sub_height.saturating_sub(1);
+    // For single-row bases with both sup and sub, don't overlap — stack all three.
+    // For multi-row bases or single script, allow 1 row of overlap.
+    let can_overlap_sup = has_sup && base_height > 1;
+    let can_overlap_sub = has_sub && base_height > 1 && !(has_sup && base_height <= 2);
+
+    let sup_above = if can_overlap_sup {
+        sup_height.saturating_sub(1)
+    } else {
+        sup_height
+    };
+
+    let sub_below = if can_overlap_sub {
+        sub_height.saturating_sub(1)
+    } else {
+        sub_height
+    };
 
     let total_height = sup_above + base_height + sub_below;
-
     let mut rows = Vec::with_capacity(total_height);
 
-    // Sup-only rows (above the base)
-    for r in 0..sup_above {
-        let mut row = vec![" ".to_string(); base_width];
-        if r < sup_cells.len() {
-            row.extend(sup_cells[r].iter().cloned());
-            // Pad script column to script_width
-            let used: usize = sup_cells[r].len();
+    let empty_script = || std::iter::repeat_n(" ".to_string(), script_width);
+
+    // Helper to append a script row (or padding) to a row
+    fn append_script_row(row: &mut Vec<String>, cells: &[Vec<String>], idx: usize, script_width: usize) {
+        if idx < cells.len() {
+            row.extend(cells[idx].iter().cloned());
+            let used = cells[idx].len();
             row.extend(std::iter::repeat_n(" ".to_string(), script_width.saturating_sub(used)));
         } else {
             row.extend(std::iter::repeat_n(" ".to_string(), script_width));
         }
+    }
+
+    // Phase 1: sup-only rows above the base
+    for r in 0..sup_above {
+        let mut row = vec![" ".to_string(); base_width];
+        append_script_row(&mut row, sup_cells, r, script_width);
         rows.push(row);
     }
 
-    // Base rows
+    // Phase 2: base rows (with possible script overlap)
     for r in 0..base_height {
         let mut row = base_cells[r].clone();
 
-        // Determine what goes in the script column for this row
-        let sup_row_idx = sup_above + r; // index into sup if it extended this far
-        let sub_row_idx_in_sub = r as isize - (base_height as isize - 1); // 0 for last base row
-
-        if sup_row_idx < sup_height {
-            // Last row(s) of sup overlapping with base
-            row.extend(sup_cells[sup_row_idx].iter().cloned());
-            let used = sup_cells[sup_row_idx].len();
-            row.extend(std::iter::repeat_n(" ".to_string(), script_width.saturating_sub(used)));
-        } else if sub_row_idx_in_sub >= 0 && (sub_row_idx_in_sub as usize) < sub_height {
-            // First row(s) of sub overlapping with base
-            let si = sub_row_idx_in_sub as usize;
-            row.extend(sub_cells[si].iter().cloned());
-            let used = sub_cells[si].len();
-            row.extend(std::iter::repeat_n(" ".to_string(), script_width.saturating_sub(used)));
+        // Check if a sup row overlaps here
+        let sup_idx = if can_overlap_sup { sup_above + r } else { usize::MAX };
+        // Check if a sub row overlaps here
+        let sub_overlap_start = if can_overlap_sub {
+            base_height.saturating_sub(sub_height)
         } else {
-            row.extend(std::iter::repeat_n(" ".to_string(), script_width));
+            usize::MAX
+        };
+        let sub_idx = if r >= sub_overlap_start && can_overlap_sub {
+            r - sub_overlap_start
+        } else {
+            usize::MAX
+        };
+
+        if sup_idx < sup_height {
+            append_script_row(&mut row, sup_cells, sup_idx, script_width);
+        } else if sub_idx < sub_height {
+            append_script_row(&mut row, sub_cells, sub_idx, script_width);
+        } else {
+            row.extend(empty_script());
         }
 
         rows.push(row);
     }
 
-    // Sub-only rows (below the base)
-    for r in 0..sub_below {
-        let actual_sub_idx = sub_height - sub_below + r;
+    // Phase 3: sub-only rows below the base
+    let sub_start = if can_overlap_sub {
+        // Some sub rows were already placed via overlap
+        let overlapped = sub_height.min(base_height);
+        overlapped
+    } else {
+        0
+    };
+    for r in sub_start..sub_height {
         let mut row = vec![" ".to_string(); base_width];
-        if actual_sub_idx < sub_cells.len() {
-            row.extend(sub_cells[actual_sub_idx].iter().cloned());
-            let used = sub_cells[actual_sub_idx].len();
-            row.extend(std::iter::repeat_n(" ".to_string(), script_width.saturating_sub(used)));
-        } else {
-            row.extend(std::iter::repeat_n(" ".to_string(), script_width));
-        }
+        append_script_row(&mut row, sub_cells, r, script_width);
         rows.push(row);
     }
 
