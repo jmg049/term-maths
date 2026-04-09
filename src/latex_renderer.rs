@@ -38,7 +38,11 @@ fn node_to_latex(node: &EqNode) -> String {
             )
         }
         EqNode::Sqrt(body) => format!(r"\sqrt{{{}}}", node_to_latex(body)),
-        EqNode::BigOp { symbol, lower, upper } => {
+        EqNode::BigOp {
+            symbol,
+            lower,
+            upper,
+        } => {
             let sym = unicode_to_latex_op(symbol);
             let mut s = sym;
             if let Some(lo) = lower {
@@ -81,7 +85,11 @@ fn node_to_latex(node: &EqNode) -> String {
             };
             format!("{}{{{}}}", cmd, node_to_latex(content))
         }
-        EqNode::Delimited { left, right, content } => {
+        EqNode::Delimited {
+            left,
+            right,
+            content,
+        } => {
             format!(
                 r"\left{} {} \right{}",
                 latex_delim(left),
@@ -125,15 +133,20 @@ fn node_to_latex(node: &EqNode) -> String {
                     }
                 })
                 .collect();
-            format!(
-                r"\begin{{cases}} {} \end{{cases}}",
-                rows_str.join(r" \\ ")
-            )
+            format!(r"\begin{{cases}} {} \end{{cases}}", rows_str.join(r" \\ "))
         }
         EqNode::Binom(top, bottom) => {
-            format!(r"\binom{{{}}}{{{}}}", node_to_latex(top), node_to_latex(bottom))
+            format!(
+                r"\binom{{{}}}{{{}}}",
+                node_to_latex(top),
+                node_to_latex(bottom)
+            )
         }
-        EqNode::Brace { content, label, over } => {
+        EqNode::Brace {
+            content,
+            label,
+            over,
+        } => {
             let cmd = if *over { r"\overbrace" } else { r"\underbrace" };
             let mut s = format!("{}{{{}}}", cmd, node_to_latex(content));
             if let Some(lbl) = label {
@@ -145,10 +158,15 @@ fn node_to_latex(node: &EqNode) -> String {
             }
             s
         }
-        EqNode::StackRel { base, annotation, over } => {
+        EqNode::StackRel {
+            base,
+            annotation,
+            over,
+        } => {
             let cmd = if *over { r"\overset" } else { r"\underset" };
             format!(
-                "{}{{{}}}{{{}}}", cmd,
+                "{}{{{}}}{{{}}}",
+                cmd,
                 node_to_latex(annotation),
                 node_to_latex(base)
             )
@@ -250,8 +268,8 @@ fn latex_delim(d: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rust_latex_parser::parse_equation;
     use crate::renderer::MathRenderer;
+    use rust_latex_parser::parse_equation;
 
     #[test]
     fn test_simple_fraction_roundtrip() {

@@ -8,7 +8,10 @@ fn main() {
     }
     if std::env::args().len() <= 1 {
         // Defaults
-        for expr in [r"a + b = c", r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}"] {
+        for expr in [
+            r"a + b = c",
+            r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}",
+        ] {
             println!("=== {} ===", expr);
             println!("{:#?}", parse_equation(expr));
             println!();

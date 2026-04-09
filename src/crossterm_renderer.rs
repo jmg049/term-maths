@@ -29,11 +29,7 @@ impl CrosstermRenderer {
     }
 
     /// Write a rendered block to stdout at the given position.
-    pub fn print_at(
-        block: &RenderedBlock,
-        col: u16,
-        row: u16,
-    ) -> std::io::Result<()> {
+    pub fn print_at(block: &RenderedBlock, col: u16, row: u16) -> std::io::Result<()> {
         let mut stdout = std::io::stdout();
         Self::render_at(&mut stdout, block, col, row)
     }

@@ -14,17 +14,33 @@ pub fn layout(node: &EqNode) -> RenderedBlock {
         EqNode::Sub(base, sub) => layout_sub(base, sub),
         EqNode::SupSub(base, sup, sub) => layout_supsub(base, sup, sub),
         EqNode::Sqrt(body) => layout_sqrt(body),
-        EqNode::BigOp { symbol, lower, upper } => layout_bigop(symbol, lower, upper),
+        EqNode::BigOp {
+            symbol,
+            lower,
+            upper,
+        } => layout_bigop(symbol, lower, upper),
         EqNode::Accent(body, kind) => layout_accent(body, kind),
         EqNode::Limit { name, lower } => layout_limit(name, lower),
         EqNode::TextBlock(s) => RenderedBlock::from_text(s),
         EqNode::MathFont { kind, content } => layout_mathfont(kind, content),
-        EqNode::Delimited { left, right, content } => layout_delimited(left, right, content),
+        EqNode::Delimited {
+            left,
+            right,
+            content,
+        } => layout_delimited(left, right, content),
         EqNode::Matrix { kind, rows } => layout_matrix(kind, rows),
         EqNode::Cases { rows } => layout_cases(rows),
         EqNode::Binom(top, bottom) => layout_binom(top, bottom),
-        EqNode::Brace { content, label, over } => layout_brace(content, label, over),
-        EqNode::StackRel { base, annotation, over } => layout_stackrel(base, annotation, over),
+        EqNode::Brace {
+            content,
+            label,
+            over,
+        } => layout_brace(content, label, over),
+        EqNode::StackRel {
+            base,
+            annotation,
+            over,
+        } => layout_stackrel(base, annotation, over),
     }
 }
 
@@ -121,7 +137,11 @@ fn extract_flat_text(node: &EqNode) -> Option<String> {
                     _ => return None,
                 }
             }
-            if result.is_empty() { None } else { Some(result) }
+            if result.is_empty() {
+                None
+            } else {
+                Some(result)
+            }
         }
         _ => None,
     }
@@ -186,7 +206,10 @@ fn trim_node(node: &EqNode) -> EqNode {
                 .collect();
             // Remove leading/trailing space-like nodes
             let start = trimmed.iter().position(|c| !is_space_like(c)).unwrap_or(0);
-            let end = trimmed.iter().rposition(|c| !is_space_like(c)).map_or(0, |i| i + 1);
+            let end = trimmed
+                .iter()
+                .rposition(|c| !is_space_like(c))
+                .map_or(0, |i| i + 1);
             if start >= end {
                 return EqNode::Seq(vec![]);
             }
@@ -390,11 +413,19 @@ fn build_sup_sub_grid(
     let empty_script = || std::iter::repeat_n(" ".to_string(), script_width);
 
     // Helper to append a script row (or padding) to a row
-    fn append_script_row(row: &mut Vec<String>, cells: &[Vec<String>], idx: usize, script_width: usize) {
+    fn append_script_row(
+        row: &mut Vec<String>,
+        cells: &[Vec<String>],
+        idx: usize,
+        script_width: usize,
+    ) {
         if idx < cells.len() {
             row.extend(cells[idx].iter().cloned());
             let used = cells[idx].len();
-            row.extend(std::iter::repeat_n(" ".to_string(), script_width.saturating_sub(used)));
+            row.extend(std::iter::repeat_n(
+                " ".to_string(),
+                script_width.saturating_sub(used),
+            ));
         } else {
             row.extend(std::iter::repeat_n(" ".to_string(), script_width));
         }
@@ -408,11 +439,15 @@ fn build_sup_sub_grid(
     }
 
     // Phase 2: base rows (with possible script overlap)
-    for r in 0..base_height {
-        let mut row = base_cells[r].clone();
+    for (r, base_row) in base_cells.iter().enumerate().take(base_height) {
+        let mut row = base_row.clone();
 
         // Check if a sup row overlaps here
-        let sup_idx = if can_overlap_sup { sup_above + r } else { usize::MAX };
+        let sup_idx = if can_overlap_sup {
+            sup_above + r
+        } else {
+            usize::MAX
+        };
         // Check if a sub row overlaps here
         let sub_overlap_start = if can_overlap_sub {
             base_height.saturating_sub(sub_height)
@@ -438,9 +473,7 @@ fn build_sup_sub_grid(
 
     // Phase 3: sub-only rows below the base
     let sub_start = if can_overlap_sub {
-        // Some sub rows were already placed via overlap
-        let overlapped = sub_height.min(base_height);
-        overlapped
+        sub_height.min(base_height)
     } else {
         0
     };
@@ -489,11 +522,7 @@ fn layout_sqrt(body: &EqNode) -> RenderedBlock {
 
         // Body rows with radical on the left
         for r in 0..body_h {
-            let radical_char = if r == body_h - 1 {
-                "√"
-            } else {
-                "│"
-            };
+            let radical_char = if r == body_h - 1 { "√" } else { "│" };
             let mut row = vec![radical_char.to_string()];
             row.extend(body_block.cells()[r].iter().cloned());
             rows.push(row);
@@ -597,11 +626,10 @@ fn layout_accent(body: &EqNode, kind: &AccentKind) -> RenderedBlock {
             } else {
                 // Wide hat: /‾‾‾\ shape
                 let inner = w.saturating_sub(2);
-                let hat_str: String =
-                    std::iter::once('/')
-                        .chain(std::iter::repeat_n('‾', inner))
-                        .chain(std::iter::once('\\'))
-                        .collect();
+                let hat_str: String = std::iter::once('/')
+                    .chain(std::iter::repeat_n('‾', inner))
+                    .chain(std::iter::once('\\'))
+                    .collect();
                 RenderedBlock::from_text(&hat_str)
             }
         }
@@ -619,7 +647,9 @@ fn layout_accent(body: &EqNode, kind: &AccentKind) -> RenderedBlock {
             } else {
                 // Arrow spanning width: ──→
                 let shaft = w.saturating_sub(1);
-                let arrow_str: String = std::iter::repeat_n('─', shaft).chain(std::iter::once('→')).collect();
+                let arrow_str: String = std::iter::repeat_n('─', shaft)
+                    .chain(std::iter::once('→'))
+                    .collect();
                 RenderedBlock::from_text(&arrow_str)
             }
         }
@@ -671,17 +701,11 @@ fn layout_delimited(left: &str, right: &str, content: &EqNode) -> RenderedBlock 
 fn build_delimiter(delim: &str, height: usize) -> RenderedBlock {
     if delim == "." || delim.is_empty() {
         // Invisible delimiter
-        return RenderedBlock::new(
-            vec![vec![" ".to_string()]; height],
-            height / 2,
-        );
+        return RenderedBlock::new(vec![vec![" ".to_string()]; height], height / 2);
     }
 
     if height <= 1 {
-        return RenderedBlock::new(
-            vec![vec![delim.to_string()]],
-            0,
-        );
+        return RenderedBlock::new(vec![vec![delim.to_string()]], 0);
     }
 
     let (top, mid, bot) = match delim {
@@ -746,11 +770,9 @@ fn layout_matrix(kind: &MatrixKind, matrix_rows: &[Vec<EqNode>]) -> RenderedBloc
             row_block = row_block.beside(&padded);
         }
         // Pad to fill missing columns
-        for c in row.len()..num_cols {
+        for w in col_widths.iter().take(num_cols).skip(row.len()) {
             row_block = row_block.beside(&separator);
-            row_block = row_block.beside(&RenderedBlock::from_text(
-                &" ".repeat(col_widths[c]),
-            ));
+            row_block = row_block.beside(&RenderedBlock::from_text(&" ".repeat(*w)));
         }
         row_blocks.push(row_block);
     }
@@ -815,14 +837,18 @@ fn layout_cases(rows: &[(EqNode, Option<EqNode>)]) -> RenderedBlock {
         let padded = RenderedBlock::new(row_block.cells().to_vec(), row_block.baseline());
         // Pad to max width
         let full_row = RenderedBlock::new(
-            padded.cells().iter().map(|r| {
-                let mut r = r.clone();
-                r.extend(std::iter::repeat_n(
-                    " ".to_string(),
-                    max_width.saturating_sub(r.len()),
-                ));
-                r
-            }).collect(),
+            padded
+                .cells()
+                .iter()
+                .map(|r| {
+                    let mut r = r.clone();
+                    r.extend(std::iter::repeat_n(
+                        " ".to_string(),
+                        max_width.saturating_sub(r.len()),
+                    ));
+                    r
+                })
+                .collect(),
             padded.baseline(),
         );
         if grid.is_empty() {
@@ -875,14 +901,12 @@ fn layout_brace(content: &EqNode, label: &Option<Box<EqNode>>, over: &bool) -> R
             let baseline = content_block.baseline();
             RenderedBlock::above(&content_block, &bottom, baseline)
         }
+    } else if *over {
+        let baseline = brace_block.height() + content_block.baseline();
+        RenderedBlock::above(&brace_block, &content_block, baseline)
     } else {
-        if *over {
-            let baseline = brace_block.height() + content_block.baseline();
-            RenderedBlock::above(&brace_block, &content_block, baseline)
-        } else {
-            let baseline = content_block.baseline();
-            RenderedBlock::above(&content_block, &brace_block, baseline)
-        }
+        let baseline = content_block.baseline();
+        RenderedBlock::above(&content_block, &brace_block, baseline)
     }
 }
 

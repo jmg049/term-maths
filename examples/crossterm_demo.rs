@@ -4,9 +4,9 @@
 
 #[cfg(feature = "crossterm")]
 fn main() -> std::io::Result<()> {
-    use std::io::{stdout, Write};
     use crossterm::{cursor, execute, terminal};
-    use term_maths::{render, CrosstermRenderer};
+    use std::io::{Write, stdout};
+    use term_maths::{CrosstermRenderer, render};
 
     let block = render(r"\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}");
 

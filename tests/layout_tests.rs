@@ -138,8 +138,14 @@ fn test_dft_summation() {
     // Must contain the summation symbol
     assert!(joined.contains('∑'), "missing Σ");
     // Must contain upper limit N-1 and lower limit n=0
-    assert!(joined.contains("N - 1") || joined.contains("N-1"), "missing upper limit");
-    assert!(joined.contains("n = 0") || joined.contains("n=0"), "missing lower limit");
+    assert!(
+        joined.contains("N - 1") || joined.contains("N-1"),
+        "missing upper limit"
+    );
+    assert!(
+        joined.contains("n = 0") || joined.contains("n=0"),
+        "missing lower limit"
+    );
     // Must contain the exponent's fraction 2π/N
     assert!(joined.contains('π'), "missing π in exponent");
     // Multi-line output
@@ -149,9 +155,7 @@ fn test_dft_summation() {
 #[test]
 fn test_convolution_integral() {
     // (f * g)(t) = ∫_{-∞}^{∞} f(τ) g(t - τ) dτ
-    let lines = render_lines(
-        r"(f * g)(t) = \int_{-\infty}^{\infty} f(\tau) g(t - \tau) \, d\tau",
-    );
+    let lines = render_lines(r"(f * g)(t) = \int_{-\infty}^{\infty} f(\tau) g(t - \tau) \, d\tau");
     let joined = lines.join("\n");
 
     // Must contain integral pieces
@@ -165,34 +169,40 @@ fn test_convolution_integral() {
     // Must contain tau
     assert!(joined.contains('τ'), "missing tau");
     // Multi-line output (integral is 3+ rows)
-    assert!(lines.len() >= 3, "convolution integral should be at least 3 lines");
+    assert!(
+        lines.len() >= 3,
+        "convolution integral should be at least 3 lines"
+    );
 }
 
 #[test]
 fn test_transfer_function() {
     // H(z) = (b₀ + b₁z⁻¹ + b₂z⁻²) / (1 + a₁z⁻¹ + a₂z⁻²)
-    let lines = render_lines(
-        r"H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{1 + a_1 z^{-1} + a_2 z^{-2}}",
-    );
+    let lines =
+        render_lines(r"H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{1 + a_1 z^{-1} + a_2 z^{-2}}");
     let joined = lines.join("\n");
 
     // Must contain fraction bar
-    assert!(lines.iter().any(|l| l.contains('─')), "missing fraction bar");
+    assert!(
+        lines.iter().any(|l| l.contains('─')),
+        "missing fraction bar"
+    );
     // Must contain subscripted coefficients
     assert!(joined.contains('₀') || joined.contains("b_0"), "missing b₀");
     assert!(joined.contains('₁') || joined.contains("b_1"), "missing b₁");
     // Must contain z⁻¹ (inline superscript)
     assert!(joined.contains("z⁻¹"), "missing z⁻¹");
     // Three lines minimum (num + bar + den)
-    assert!(lines.len() >= 3, "transfer function should be at least 3 lines");
+    assert!(
+        lines.len() >= 3,
+        "transfer function should be at least 3 lines"
+    );
 }
 
 #[test]
 fn test_hann_window() {
     // w(n) = 0.5(1 - cos(2πn / (N-1)))
-    let lines = render_lines(
-        r"w(n) = 0.5 \left(1 - \cos\left(\frac{2\pi n}{N - 1}\right)\right)",
-    );
+    let lines = render_lines(r"w(n) = 0.5 \left(1 - \cos\left(\frac{2\pi n}{N - 1}\right)\right)");
     let joined = lines.join("\n");
 
     // Must contain cos
@@ -227,7 +237,10 @@ fn test_sum_with_limits() {
     let joined = lines.join("\n");
     assert!(joined.contains('∑'), "missing Σ");
     // Upper limit above, lower limit below
-    assert!(lines.len() >= 3, "sum with limits should be at least 3 lines");
+    assert!(
+        lines.len() >= 3,
+        "sum with limits should be at least 3 lines"
+    );
 }
 
 #[test]
@@ -282,8 +295,14 @@ fn test_pmatrix_2x2() {
     let lines = render_lines(r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}");
     let joined = lines.join("\n");
     // Parenthesis delimiters
-    assert!(joined.contains('⎛') || joined.contains('('), "missing left paren");
-    assert!(joined.contains('⎞') || joined.contains(')'), "missing right paren");
+    assert!(
+        joined.contains('⎛') || joined.contains('('),
+        "missing left paren"
+    );
+    assert!(
+        joined.contains('⎞') || joined.contains(')'),
+        "missing right paren"
+    );
     // All entries present
     for ch in ['a', 'b', 'c', 'd'] {
         assert!(joined.contains(ch), "missing entry {}", ch);
@@ -295,8 +314,14 @@ fn test_bmatrix_identity() {
     let lines = render_lines(r"\begin{bmatrix} 1 & 0 \\ 0 & 1 \end{bmatrix}");
     let joined = lines.join("\n");
     // Bracket delimiters
-    assert!(joined.contains('⎡') || joined.contains('['), "missing left bracket");
-    assert!(joined.contains('⎤') || joined.contains(']'), "missing right bracket");
+    assert!(
+        joined.contains('⎡') || joined.contains('['),
+        "missing left bracket"
+    );
+    assert!(
+        joined.contains('⎤') || joined.contains(']'),
+        "missing right bracket"
+    );
 }
 
 #[test]
@@ -308,9 +333,7 @@ fn test_vmatrix_determinant() {
 
 #[test]
 fn test_matrix_with_fractions() {
-    let lines = render_lines(
-        r"\begin{pmatrix} \frac{1}{2} & 0 \\ 0 & \frac{3}{4} \end{pmatrix}",
-    );
+    let lines = render_lines(r"\begin{pmatrix} \frac{1}{2} & 0 \\ 0 & \frac{3}{4} \end{pmatrix}");
     let joined = lines.join("\n");
     // Fraction bars inside cells
     assert!(joined.contains('─'), "missing fraction bar");
@@ -318,14 +341,15 @@ fn test_matrix_with_fractions() {
     assert!(joined.contains('1') && joined.contains('2'), "missing 1/2");
     assert!(joined.contains('3') && joined.contains('4'), "missing 3/4");
     // Multi-line (fractions make rows taller)
-    assert!(lines.len() >= 4, "matrix with fractions should be at least 4 lines");
+    assert!(
+        lines.len() >= 4,
+        "matrix with fractions should be at least 4 lines"
+    );
 }
 
 #[test]
 fn test_3x3_matrix() {
-    let lines = render_lines(
-        r"\begin{bmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 9 \end{bmatrix}",
-    );
+    let lines = render_lines(r"\begin{bmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 9 \end{bmatrix}");
     let joined = lines.join("\n");
     // All digits present
     for d in '1'..='9' {

@@ -2,12 +2,7 @@
 //!
 //! Feature-gated behind `ratatui`.
 
-use ratatui::{
-    buffer::Buffer,
-    layout::Rect,
-    style::Style,
-    widgets::Widget,
-};
+use ratatui::{buffer::Buffer, layout::Rect, style::Style, widgets::Widget};
 
 use crate::rendered_block::RenderedBlock;
 

@@ -7,7 +7,7 @@ fn main() {
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::widgets::Widget;
-    use term_maths::{render, MathWidget};
+    use term_maths::{MathWidget, render};
 
     let block = render(r"\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}");
 
