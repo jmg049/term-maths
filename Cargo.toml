@@ -1,0 +1,17 @@
+[package]
+name = "term-maths"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+crossterm = { version = "0.29.0", optional = true }
+pulldown-latex = { version = "0.7.1", optional = true }
+ratatui = { version = "0.30.0", optional = true }
+rust-latex-parser = "0.1.0"
+unicode-segmentation = "1.13.2"
+unicode-width = "0.2.2"
+
+[features]
+ratatui = ["dep:ratatui"]
+crossterm = ["dep:crossterm"]
+pulldown-latex = ["dep:pulldown-latex"]
