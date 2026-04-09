@@ -28,27 +28,36 @@ fn test_nested_fraction() {
 
 #[test]
 fn test_superscript() {
+    // Simple digits use inline Unicode superscript
     let lines = render_lines(r"x^2");
-    assert_eq!(lines.len(), 2);
-    assert_eq!(lines[0].trim(), "2");
-    assert_eq!(lines[1].trim(), "x");
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0], "x²");
 }
 
 #[test]
 fn test_subscript() {
+    // Simple chars use inline Unicode subscript
     let lines = render_lines(r"a_n");
-    assert_eq!(lines.len(), 2);
-    assert_eq!(lines[0].trim(), "a");
-    assert_eq!(lines[1].trim(), "n");
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0], "aₙ");
 }
 
 #[test]
 fn test_supsub() {
+    // Both scripts inline when possible
     let lines = render_lines(r"x_i^2");
-    assert_eq!(lines.len(), 3);
-    assert_eq!(lines[0].trim(), "2");
-    assert_eq!(lines[1].trim(), "x");
-    assert_eq!(lines[2].trim(), "i");
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0], "x²ᵢ");
+}
+
+#[test]
+fn test_superscript_fallback() {
+    // Complex superscripts fall back to multi-row
+    let lines = render_lines(r"e^{i\pi}");
+    assert!(lines.len() >= 2);
+    let joined = lines.join("\n");
+    assert!(joined.contains('π'));
+    assert!(joined.contains('e'));
 }
 
 #[test]

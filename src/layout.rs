@@ -6,7 +6,7 @@ use crate::rendered_block::RenderedBlock;
 pub fn layout(node: &EqNode) -> RenderedBlock {
     match node {
         EqNode::Text(s) => layout_text(s),
-        EqNode::Space(_) => RenderedBlock::from_char(' '),
+        EqNode::Space(pts) => layout_space(*pts),
         EqNode::Seq(children) => layout_seq(children),
         EqNode::Frac(num, den) => layout_frac(num, den),
         EqNode::Sup(base, sup) => layout_sup(base, sup),
@@ -31,11 +31,154 @@ fn layout_text(s: &str) -> RenderedBlock {
     RenderedBlock::from_text(s)
 }
 
+/// Map a character to its Unicode superscript equivalent, if one exists.
+fn to_superscript_char(ch: char) -> Option<char> {
+    match ch {
+        '0' => Some('⁰'),
+        '1' => Some('¹'),
+        '2' => Some('²'),
+        '3' => Some('³'),
+        '4' => Some('⁴'),
+        '5' => Some('⁵'),
+        '6' => Some('⁶'),
+        '7' => Some('⁷'),
+        '8' => Some('⁸'),
+        '9' => Some('⁹'),
+        '+' => Some('⁺'),
+        '-' => Some('⁻'),
+        '=' => Some('⁼'),
+        '(' => Some('⁽'),
+        ')' => Some('⁾'),
+        'n' => Some('ⁿ'),
+        'i' => Some('ⁱ'),
+        _ => None,
+    }
+}
+
+/// Map a character to its Unicode subscript equivalent, if one exists.
+fn to_subscript_char(ch: char) -> Option<char> {
+    match ch {
+        '0' => Some('₀'),
+        '1' => Some('₁'),
+        '2' => Some('₂'),
+        '3' => Some('₃'),
+        '4' => Some('₄'),
+        '5' => Some('₅'),
+        '6' => Some('₆'),
+        '7' => Some('₇'),
+        '8' => Some('₈'),
+        '9' => Some('₉'),
+        '+' => Some('₊'),
+        '-' => Some('₋'),
+        '=' => Some('₌'),
+        '(' => Some('₍'),
+        ')' => Some('₎'),
+        'a' => Some('ₐ'),
+        'e' => Some('ₑ'),
+        'h' => Some('ₕ'),
+        'i' => Some('ᵢ'),
+        'j' => Some('ⱼ'),
+        'k' => Some('ₖ'),
+        'l' => Some('ₗ'),
+        'm' => Some('ₘ'),
+        'n' => Some('ₙ'),
+        'o' => Some('ₒ'),
+        'p' => Some('ₚ'),
+        'r' => Some('ᵣ'),
+        's' => Some('ₛ'),
+        't' => Some('ₜ'),
+        'u' => Some('ᵤ'),
+        'v' => Some('ᵥ'),
+        'x' => Some('ₓ'),
+        _ => None,
+    }
+}
+
+/// Try to convert a node's text content to Unicode superscript characters.
+/// Returns None if any character lacks a superscript form.
+fn try_unicode_superscript(node: &EqNode) -> Option<String> {
+    let text = extract_flat_text(node)?;
+    text.chars().map(to_superscript_char).collect()
+}
+
+/// Try to convert a node's text content to Unicode subscript characters.
+fn try_unicode_subscript(node: &EqNode) -> Option<String> {
+    let text = extract_flat_text(node)?;
+    text.chars().map(to_subscript_char).collect()
+}
+
+/// Extract flat text from simple nodes (Text, Seq of Text).
+fn extract_flat_text(node: &EqNode) -> Option<String> {
+    match node {
+        EqNode::Text(s) => Some(s.clone()),
+        EqNode::Seq(children) => {
+            let mut result = String::new();
+            for child in children {
+                match child {
+                    EqNode::Text(s) => result.push_str(s),
+                    EqNode::Space(_) => {} // skip spaces in scripts
+                    _ => return None,
+                }
+            }
+            if result.is_empty() { None } else { Some(result) }
+        }
+        _ => None,
+    }
+}
+
+/// Render a Space node. The parser auto-inserts Space nodes around operators.
+/// Negative and very small spaces collapse. Standard operator spaces (3–5pt)
+/// become a single space. Larger explicit spaces (\quad etc.) grow accordingly.
+fn layout_space(pts: f32) -> RenderedBlock {
+    if pts <= 0.0 || pts < 2.0 {
+        RenderedBlock::empty()
+    } else if pts >= 18.0 {
+        // \quad or larger
+        RenderedBlock::from_text("  ")
+    } else {
+        RenderedBlock::from_char(' ')
+    }
+}
+
+/// Check if a node is whitespace-like (Space node or Text containing only spaces).
+fn is_space_like(node: &EqNode) -> bool {
+    match node {
+        EqNode::Space(_) => true,
+        EqNode::Text(s) => s.chars().all(|c| c == ' '),
+        _ => false,
+    }
+}
+
 fn layout_seq(children: &[EqNode]) -> RenderedBlock {
+    // Flatten nested Seqs so we can handle spacing uniformly.
+    let flat = flatten_seq(children);
+    // Collapse consecutive whitespace-like nodes into a single space.
     let mut result = RenderedBlock::empty();
-    for child in children {
+    let mut prev_was_space = false;
+    for child in &flat {
+        if is_space_like(child) {
+            if !prev_was_space {
+                prev_was_space = true;
+                result = result.beside(&RenderedBlock::from_char(' '));
+            }
+            continue;
+        }
+        prev_was_space = false;
         let block = layout(child);
         result = result.beside(&block);
+    }
+    result
+}
+
+/// Recursively flatten nested Seq nodes into a single flat list.
+fn flatten_seq(children: &[EqNode]) -> Vec<&EqNode> {
+    let mut result = Vec::new();
+    for child in children {
+        if let EqNode::Seq(inner) = child {
+            result.extend(flatten_seq(inner));
+        } else {
+            result.push(child);
+        }
     }
     result
 }
@@ -57,6 +200,13 @@ fn layout_frac(num: &EqNode, den: &EqNode) -> RenderedBlock {
 }
 
 fn layout_sup(base: &EqNode, sup: &EqNode) -> RenderedBlock {
+    // Try inline Unicode superscript first
+    if let Some(sup_text) = try_unicode_superscript(sup) {
+        let base_block = layout(base);
+        let sup_block = RenderedBlock::from_text(&sup_text);
+        return base_block.beside(&sup_block);
+    }
+
     let base_block = layout(base);
     let sup_block = layout(sup);
 
@@ -84,6 +234,13 @@ fn layout_sup(base: &EqNode, sup: &EqNode) -> RenderedBlock {
 }
 
 fn layout_sub(base: &EqNode, sub: &EqNode) -> RenderedBlock {
+    // Try inline Unicode subscript first
+    if let Some(sub_text) = try_unicode_subscript(sub) {
+        let base_block = layout(base);
+        let sub_block = RenderedBlock::from_text(&sub_text);
+        return base_block.beside(&sub_block);
+    }
+
     let base_block = layout(base);
     let sub_block = layout(sub);
 
@@ -104,11 +261,25 @@ fn layout_sub(base: &EqNode, sub: &EqNode) -> RenderedBlock {
 }
 
 fn layout_supsub(base: &EqNode, sup: &EqNode, sub: &EqNode) -> RenderedBlock {
+    // Try inline Unicode for both scripts
+    let sup_inline = try_unicode_superscript(sup);
+    let sub_inline = try_unicode_subscript(sub);
+
+    if let (Some(sup_text), Some(sub_text)) = (&sup_inline, &sub_inline) {
+        let base_block = layout(base);
+        let scripts = format!("{}{}", sup_text, sub_text);
+        // Subscript chars go right after superscript chars, all inline
+        // Actually stack them: sup on same line, sub on same line
+        // For compactness: base followed by sup_text on top row, sub_text on bottom
+        // Simplest: just append both inline
+        return base_block.beside(&RenderedBlock::from_text(&scripts));
+    }
+
+    // Fall back to multi-row layout
     let base_block = layout(base);
     let sup_block = layout(sup);
     let sub_block = layout(sub);
 
-    // Single-row base with both scripts: no overlap, so sup takes full height above
     let can_overlap_sup = base_block.height() > 1;
     let sup_above = if can_overlap_sup {
         sup_block.height().saturating_sub(1)
