@@ -1,10 +1,13 @@
 //! Demonstrates the crossterm renderer backend.
 //!
 //! Run with: cargo run --example crossterm_demo --features crossterm
+//!
+//! This example uses cursor positioning to render the equation at a specific
+//! location in the terminal. It must be run in a real terminal (not piped).
 
 #[cfg(feature = "crossterm")]
 fn main() -> std::io::Result<()> {
-    use crossterm::{cursor, execute, terminal};
+    use crossterm::{cursor, execute, tty::IsTty};
     use std::io::{Write, stdout};
     use term_maths::{CrosstermRenderer, render};
 
@@ -12,15 +15,28 @@ fn main() -> std::io::Result<()> {
 
     let mut stdout = stdout();
 
-    // Print a header
+    if !stdout.is_tty() {
+        // Fallback: just print via Display when not in a real terminal
+        println!("Crossterm renderer demo — quadratic formula:\n");
+        println!("{}", block);
+        return Ok(());
+    }
+
     println!("Crossterm renderer demo — quadratic formula:\n");
 
-    // Get current cursor position (approximate: after the println)
+    // Reserve vertical space by printing blank lines, then move back up
+    for _ in 0..block.height() {
+        println!();
+    }
+
+    // Move cursor back to the start of the reserved space
     let (col, row) = cursor::position()?;
-    CrosstermRenderer::render_at(&mut stdout, &block, col, row)?;
+    let start_row = row.saturating_sub(block.height() as u16);
+    CrosstermRenderer::render_at(&mut stdout, &block, col, start_row)?;
 
     // Move cursor below the rendered block
-    execute!(stdout, cursor::MoveTo(0, row + block.height() as u16 + 1))?;
+    execute!(stdout, cursor::MoveTo(0, row))?;
+    stdout.flush()?;
     println!();
 
     Ok(())

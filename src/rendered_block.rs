@@ -157,7 +157,11 @@ impl RenderedBlock {
 
     /// Stack two blocks vertically. The baseline is set to `baseline_row`
     /// (typically the dividing row between them, or top/bottom block's baseline).
-    pub fn above(top: &RenderedBlock, bottom: &RenderedBlock, baseline_row: usize) -> RenderedBlock {
+    pub fn above(
+        top: &RenderedBlock,
+        bottom: &RenderedBlock,
+        baseline_row: usize,
+    ) -> RenderedBlock {
         let width = top.width.max(bottom.width);
         let mut rows = Vec::with_capacity(top.height + bottom.height);
 
@@ -165,7 +169,11 @@ impl RenderedBlock {
             rows.push(Self::pad_row_to_width(&top.cells[r], top.width, width));
         }
         for r in 0..bottom.height {
-            rows.push(Self::pad_row_to_width(&bottom.cells[r], bottom.width, width));
+            rows.push(Self::pad_row_to_width(
+                &bottom.cells[r],
+                bottom.width,
+                width,
+            ));
         }
 
         RenderedBlock {
@@ -291,11 +299,7 @@ mod tests {
     fn test_beside_different_heights() {
         // a is 3 rows tall with baseline at row 1
         let a = RenderedBlock::new(
-            vec![
-                vec!["a".into()],
-                vec!["b".into()],
-                vec!["c".into()],
-            ],
+            vec![vec!["a".into()], vec!["b".into()], vec!["c".into()]],
             1,
         );
         // d is 1 row tall with baseline at row 0
